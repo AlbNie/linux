@@ -66,12 +66,12 @@ while true; do
 		continue
 		;;
 	"-O")
-		if [ -d $2 ];then
-			OUTPUT=$(echo $2 | sed 's/\/*$//')
-		else
-			echo "output directory $2 does not exist" 1>&2
-			exit 1
-		fi
+                if [ -d "$2" ]; then
+                        OUTPUT=$(echo "$2" | sed 's/\/*$//')
+                else
+                        echo "output directory $2 does not exist" 1>&2
+                        exit 1
+                fi
 		shift 2
 		continue
 		;;
@@ -102,7 +102,6 @@ if [ ! -r "$INITFILE" ]; then
 	exit 1
 fi
 
-MERGE_LIST=$*
 SED_CONFIG_EXP1="s/^\(${CONFIG_PREFIX}[a-zA-Z0-9_]*\)=.*/\1/p"
 SED_CONFIG_EXP2="s/^# \(${CONFIG_PREFIX}[a-zA-Z0-9_]*\) is not set$/\1/p"
 
@@ -113,44 +112,44 @@ echo "Using $INITFILE as base"
 
 trap clean_up EXIT
 
-cat $INITFILE > $TMP_FILE
+cat "$INITFILE" > "$TMP_FILE"
 
 # Merge files, printing warnings on overridden values
-for ORIG_MERGE_FILE in $MERGE_LIST ; do
-	echo "Merging $ORIG_MERGE_FILE"
-	if [ ! -r "$ORIG_MERGE_FILE" ]; then
-		echo "The merge file '$ORIG_MERGE_FILE' does not exist.  Exit." >&2
-		exit 1
-	fi
-	cat $ORIG_MERGE_FILE > $MERGE_FILE
-	CFG_LIST=$(sed -n -e "$SED_CONFIG_EXP1" -e "$SED_CONFIG_EXP2" $MERGE_FILE)
+for ORIG_MERGE_FILE in "$@"; do
+        echo "Merging $ORIG_MERGE_FILE"
+        if [ ! -r "$ORIG_MERGE_FILE" ]; then
+                echo "The merge file '$ORIG_MERGE_FILE' does not exist.  Exit." >&2
+                exit 1
+        fi
+        cat "$ORIG_MERGE_FILE" > "$MERGE_FILE"
+        CFG_LIST=$(sed -n -e "$SED_CONFIG_EXP1" -e "$SED_CONFIG_EXP2" "$MERGE_FILE")
 
-	for CFG in $CFG_LIST ; do
-		grep -q -w $CFG $TMP_FILE || continue
-		PREV_VAL=$(grep -w $CFG $TMP_FILE)
-		NEW_VAL=$(grep -w $CFG $MERGE_FILE)
-		BUILTIN_FLAG=false
-		if [ "$BUILTIN" = "true" ] && [ "${NEW_VAL#CONFIG_*=}" = "m" ] && [ "${PREV_VAL#CONFIG_*=}" = "y" ]; then
-			echo Previous  value: $PREV_VAL
-			echo New value:       $NEW_VAL
-			echo -y passed, will not demote y to m
-			echo
-			BUILTIN_FLAG=true
-		elif [ "x$PREV_VAL" != "x$NEW_VAL" ] ; then
-			echo Value of $CFG is redefined by fragment $ORIG_MERGE_FILE:
-			echo Previous  value: $PREV_VAL
-			echo New value:       $NEW_VAL
-			echo
-		elif [ "$WARNREDUN" = "true" ]; then
-			echo Value of $CFG is redundant by fragment $ORIG_MERGE_FILE:
-		fi
-		if [ "$BUILTIN_FLAG" = "false" ]; then
-			sed -i "/$CFG[ =]/d" $TMP_FILE
-		else
-			sed -i "/$CFG[ =]/d" $MERGE_FILE
-		fi
-	done
-	cat $MERGE_FILE >> $TMP_FILE
+        for CFG in $CFG_LIST; do
+                grep -q -w "$CFG" "$TMP_FILE" || continue
+                PREV_VAL=$(grep -w "$CFG" "$TMP_FILE")
+                NEW_VAL=$(grep -w "$CFG" "$MERGE_FILE")
+                BUILTIN_FLAG=false
+                if [ "$BUILTIN" = "true" ] && [ "${NEW_VAL#CONFIG_*=}" = "m" ] && [ "${PREV_VAL#CONFIG_*=}" = "y" ]; then
+                        echo Previous  value: $PREV_VAL
+                        echo New value:       $NEW_VAL
+                        echo -y passed, will not demote y to m
+                        echo
+                        BUILTIN_FLAG=true
+                elif [ "x$PREV_VAL" != "x$NEW_VAL" ]; then
+                        echo Value of $CFG is redefined by fragment $ORIG_MERGE_FILE:
+                        echo Previous  value: $PREV_VAL
+                        echo New value:       $NEW_VAL
+                        echo
+                elif [ "$WARNREDUN" = "true" ]; then
+                        echo Value of $CFG is redundant by fragment $ORIG_MERGE_FILE:
+                fi
+                if [ "$BUILTIN_FLAG" = "false" ]; then
+                        sed -i "/$CFG[ =]/d" "$TMP_FILE"
+                else
+                        sed -i "/$CFG[ =]/d" "$MERGE_FILE"
+                fi
+        done
+        cat "$MERGE_FILE" >> "$TMP_FILE"
 done
 
 if [ "$RUNMAKE" = "false" ]; then
@@ -176,10 +175,10 @@ make KCONFIG_ALLCONFIG=$TMP_FILE $OUTPUT_ARG $ALLTARGET
 
 
 # Check all specified config values took (might have missed-dependency issues)
-for CFG in $(sed -n -e "$SED_CONFIG_EXP1" -e "$SED_CONFIG_EXP2" $TMP_FILE); do
+for CFG in $(sed -n -e "$SED_CONFIG_EXP1" -e "$SED_CONFIG_EXP2" "$TMP_FILE"); do
 
-	REQUESTED_VAL=$(grep -w -e "$CFG" $TMP_FILE)
-	ACTUAL_VAL=$(grep -w -e "$CFG" "$KCONFIG_CONFIG" || true)
+        REQUESTED_VAL=$(grep -w -e "$CFG" "$TMP_FILE")
+        ACTUAL_VAL=$(grep -w -e "$CFG" "$KCONFIG_CONFIG" || true)
 	if [ "x$REQUESTED_VAL" != "x$ACTUAL_VAL" ] ; then
 		echo "Value requested for $CFG not in final .config"
 		echo "Requested value:  $REQUESTED_VAL"
